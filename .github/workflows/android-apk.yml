@@ -1,0 +1,68 @@
+name: Android Internal APK
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  certify-and-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      EXPO_NO_TELEMETRY: "1"
+      CI: "true"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24.18.0"
+          cache: "pnpm"
+
+      - name: Enable pnpm
+        run: |
+          corepack enable
+          corepack prepare pnpm@11.11.0 --activate
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Expo Doctor
+        run: pnpm exec expo-doctor
+
+      - name: Generate native Android project
+        run: pnpm exec expo prebuild --platform android --clean --no-install
+
+      - name: Build internal release APK
+        working-directory: android
+        run: ./gradlew assembleRelease --no-daemon
+
+      - name: Prepare artifact and checksum
+        run: |
+          mkdir -p artifacts
+          cp android/app/build/outputs/apk/release/app-release.apk artifacts/AGNI-v0.1.0-internal.apk
+          sha256sum artifacts/AGNI-v0.1.0-internal.apk > artifacts/AGNI-v0.1.0-internal.apk.sha256
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: AGNI-v0.1.0-internal-apk
+          path: |
+            artifacts/AGNI-v0.1.0-internal.apk
+            artifacts/AGNI-v0.1.0-internal.apk.sha256
+          if-no-files-found: error
+          retention-days: 14
