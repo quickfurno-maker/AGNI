@@ -116,7 +116,7 @@ export default function HomeScreen() {
                     key={item.id}
                     onPress={() =>
                       item.route?.startsWith('/incidents/')
-                        ? router.push(item.route as never)
+                        ? router.push({ pathname: '/incident/[id]', params: { id: item.id } })
                         : router.push({ pathname: '/(tabs)/chat', params: { prompt: `Explain attention item ${item.id}: ${item.title}` } })
                     }
                     style={styles.row}
