@@ -75,6 +75,8 @@ export default function ApprovalsScreen() {
         </View>
 
         {approvals.isLoading ? <ActivityIndicator color={palette.accent} /> : null}
+        {approvals.isError ? <Text style={styles.error}>Could not load approvals. No action was executed.</Text> : null}
+        {decision.isError ? <Text style={styles.error}>Approval decision failed closed. Refresh and verify before retrying.</Text> : null}
 
         {approvals.data?.length === 0 ? (
           <View style={styles.empty}>
@@ -98,6 +100,7 @@ export default function ApprovalsScreen() {
               <Text style={styles.fact}>Action · {approval.actionType.replaceAll('_', ' ')}</Text>
               <Text style={styles.fact}>Rollback · {approval.rollbackAvailable ? 'Available' : 'No'}</Text>
               <Text style={styles.fact}>DB mutation · {approval.databaseMutation ? 'Yes' : 'No'}</Text>
+              <Text style={styles.fact}>Expires · {new Date(approval.expiresAt).toLocaleString()}</Text>
               {approval.confidence !== undefined ? (
                 <Text style={styles.fact}>Confidence · {Math.round(approval.confidence * 100)}%</Text>
               ) : null}
@@ -142,6 +145,7 @@ const styles = StyleSheet.create({
   eyebrow: { color: palette.accent, fontSize: 10, letterSpacing: 1.5, fontWeight: '900' },
   title: { color: palette.text, fontSize: 26, fontWeight: '900' },
   subtitle: { color: palette.muted, fontSize: 12, lineHeight: 18 },
+  error: { color: palette.red, fontSize: 11, lineHeight: 16 },
   empty: {
     marginTop: 50,
     padding: 22,

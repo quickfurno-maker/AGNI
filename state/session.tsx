@@ -9,6 +9,7 @@ import type { OwnerSession } from '@/types/owner';
 type SessionState =
   | { status: 'LOADING'; session: null }
   | { status: 'UNPAIRED'; session: null }
+  | { status: 'RECOVERABLE_ERROR'; session: null; message: string }
   | { status: 'READY'; session: OwnerSession };
 
 interface SessionContextValue {
@@ -34,8 +35,16 @@ export function OwnerSessionProvider({ children }: React.PropsWithChildren) {
       const session = await getSession();
       setState({ status: 'READY', session });
     } catch {
-      await clearSessionToken();
-      setState({ status: 'UNPAIRED', session: null });
+      const retainedToken = await readSessionToken();
+      if (!retainedToken) {
+        setState({ status: 'UNPAIRED', session: null });
+        return;
+      }
+      setState({
+        status: 'RECOVERABLE_ERROR',
+        session: null,
+        message: 'Owner Gateway unavailable. This device remains securely paired.',
+      });
     }
   }, []);
 
@@ -63,7 +72,8 @@ export function OwnerSessionProvider({ children }: React.PropsWithChildren) {
     const result = await LocalAuthentication.authenticateAsync({
       promptMessage: 'Approve AGNI production action',
       cancelLabel: 'Cancel',
-      disableDeviceFallback: false,
+      disableDeviceFallback: true,
+      biometricsSecurityLevel: 'strong',
     });
     return result.success;
   }, []);
