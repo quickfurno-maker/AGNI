@@ -18,15 +18,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.11.0
+          run_install: false
+
       - uses: actions/setup-node@v4
         with:
           node-version: "24.18.0"
           cache: "pnpm"
-
-      - name: Enable pnpm
-        run: |
-          corepack enable
-          corepack prepare pnpm@11.11.0 --activate
 
       - uses: actions/setup-java@v4
         with:
