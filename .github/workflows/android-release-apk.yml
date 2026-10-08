@@ -1,0 +1,130 @@
+name: Android Private Release APK
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+  attestations: write
+
+jobs:
+  certify-sign-and-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    environment: agni-android-production
+    env:
+      EXPO_NO_TELEMETRY: "1"
+      CI: "true"
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
+        with:
+          version: 11.11.0
+          run_install: false
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: "24.18.0"
+          cache: "pnpm"
+
+      - uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Expo Doctor
+        run: pnpm exec expo-doctor
+
+      - name: Generate native Android project
+        run: pnpm exec expo prebuild --platform android --clean --no-install
+
+      - name: Materialize owner-controlled signing key
+        shell: bash
+        env:
+          KEYSTORE_B64: ${{ secrets.AGNI_ANDROID_KEYSTORE_B64 }}
+        run: |
+          set -euo pipefail
+          test -n "$KEYSTORE_B64"
+          printf '%s' "$KEYSTORE_B64" | base64 --decode > "$RUNNER_TEMP/agni-release.p12"
+          chmod 0600 "$RUNNER_TEMP/agni-release.p12"
+          echo "AGNI_ANDROID_KEYSTORE_FILE=$RUNNER_TEMP/agni-release.p12" >> "$GITHUB_ENV"
+
+      - name: Validate release signing identity
+        shell: bash
+        env:
+          AGNI_ANDROID_STORE_PASSWORD: ${{ secrets.AGNI_ANDROID_STORE_PASSWORD }}
+          AGNI_ANDROID_KEY_ALIAS: ${{ secrets.AGNI_ANDROID_KEY_ALIAS }}
+        run: |
+          set -euo pipefail
+          test -n "$AGNI_ANDROID_STORE_PASSWORD"
+          test -n "$AGNI_ANDROID_KEY_ALIAS"
+          keytool -list             -storetype PKCS12             -keystore "$AGNI_ANDROID_KEYSTORE_FILE"             -storepass "$AGNI_ANDROID_STORE_PASSWORD"             -alias "$AGNI_ANDROID_KEY_ALIAS" >/dev/null
+
+      - name: Build signed private release APK
+        working-directory: android
+        env:
+          AGNI_ANDROID_STORE_PASSWORD: ${{ secrets.AGNI_ANDROID_STORE_PASSWORD }}
+          AGNI_ANDROID_KEY_ALIAS: ${{ secrets.AGNI_ANDROID_KEY_ALIAS }}
+          AGNI_ANDROID_KEY_PASSWORD: ${{ secrets.AGNI_ANDROID_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          test -n "$AGNI_ANDROID_STORE_PASSWORD"
+          test -n "$AGNI_ANDROID_KEY_ALIAS"
+          test -n "$AGNI_ANDROID_KEY_PASSWORD"
+          ./gradlew app:assembleRelease --no-daemon
+
+      - name: Verify signer and prepare manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts
+          APK="artifacts/AGNI-v0.2.0-private-release.apk"
+          cp android/app/build/outputs/apk/release/app-release.apk "$APK"
+
+          APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -1)"
+          test -x "$APKSIGNER"
+          "$APKSIGNER" verify --verbose --print-certs "$APK" | tee artifacts/apksigner.txt
+          grep -Fq "CN=QuickFurno AGNI" artifacts/apksigner.txt
+          if grep -Fqi "Android Debug" artifacts/apksigner.txt; then
+            echo "REFUSED_DEBUG_SIGNER" >&2
+            exit 1
+          fi
+
+          sha256sum "$APK" > "$APK.sha256"
+          CERT_SHA="$("$APKSIGNER" verify --print-certs "$APK"             | sed -n 's/^Signer #1 certificate SHA-256 digest: //p' | head -1)"
+          test -n "$CERT_SHA"
+          APK_SHA="$(cut -d ' ' -f 1 "$APK.sha256")"
+
+          jq -n             --arg schema "qf.agni.android.release.v1"             --arg classification "PRIVATE_RELEASE"             --arg package "com.quickfurno.agni"             --arg version "0.2.0"             --argjson versionCode 2             --arg sourceSha "$GITHUB_SHA"             --arg artifact "AGNI-v0.2.0-private-release.apk"             --arg sha256 "$APK_SHA"             --arg signerCertificateSha256 "$CERT_SHA"             '{schema:$schema,classification:$classification,package:$package,version:$version,versionCode:$versionCode,sourceSha:$sourceSha,artifact:$artifact,sha256:$sha256,signerCertificateSha256:$signerCertificateSha256}'             > artifacts/release-manifest.json
+          rm -f artifacts/apksigner.txt
+
+      - name: Attest exact APK provenance
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4
+        with:
+          subject-path: artifacts/AGNI-v0.2.0-private-release.apk
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: AGNI-v0.2.0-private-release
+          path: |
+            artifacts/AGNI-v0.2.0-private-release.apk
+            artifacts/AGNI-v0.2.0-private-release.apk.sha256
+            artifacts/release-manifest.json
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Destroy materialized signing key
+        if: always()
+        shell: bash
+        run: rm -f "$RUNNER_TEMP/agni-release.p12"
