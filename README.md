@@ -36,7 +36,12 @@ pnpm lint
 
 ## Direct APK
 
-The repository includes an EAS `production-apk` profile and a GitHub Actions internal-APK build. Phase 1 intentionally produces an installable internal APK; the generated Expo release project still uses the default debug signing identity. **Do not treat that artifact as production-signed.** Phase 3 replaces it with a stable private QuickFurno release key, signed release manifest and checksum before self-hosted production distribution.
+AGNI uses two deliberately separate Android artifact classes:
+
+- **Engineering debug APK** — built automatically from `main` for device testing. It is explicitly labeled `ENGINEERING_DEBUG` and must never be treated as a production release.
+- **Private release APK** — built only by the manually dispatched `Android Private Release APK` workflow inside the `agni-android-production` environment. It requires the owner-controlled QuickFurno signing keystore and passwords, refuses missing signing material, verifies that the APK is not Android-debug signed, and publishes a SHA-256 plus release manifest bound to the source SHA and signing certificate.
+
+Release signing is injected during Expo prebuild through `plugins/withAgniReleaseSigning.js`, so `expo prebuild --clean` cannot silently restore debug signing for a release build. Required GitHub secrets are `AGNI_ANDROID_KEYSTORE_B64`, `AGNI_ANDROID_STORE_PASSWORD`, `AGNI_ANDROID_KEY_ALIAS`, and `AGNI_ANDROID_KEY_PASSWORD`. The private key must remain outside Git and outside the application package.
 
 ## Required Owner Gateway API
 

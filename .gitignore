@@ -4,6 +4,7 @@ android/
 ios/
 dist/
 coverage/
+artifacts/
 *.jks
 *.keystore
 *.p12
