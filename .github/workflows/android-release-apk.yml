@@ -100,7 +100,7 @@ jobs:
           fi
 
           sha256sum "$APK" > "$APK.sha256"
-          CERT_SHA="$("$APKSIGNER" verify --print-certs "$APK"             | sed -n 's/^Signer #1 certificate SHA-256 digest: //p' | head -1)"
+          CERT_SHA="$("$APKSIGNER" verify --print-certs "$APK"             | sed -n 's/^.*certificate SHA-256 digest: //p' | head -1)"
           test -n "$CERT_SHA"
           APK_SHA="$(cut -d ' ' -f 1 "$APK.sha256")"
 
