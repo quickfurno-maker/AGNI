@@ -33,6 +33,8 @@ const QUICK_PROMPTS = [
   'Summarize today.',
   'What needs my attention?',
   'Show system health.',
+  'Where do we need more vendors?',
+  'Which areas are oversupplied?',
   'Why are vendors not getting leads?',
 ] as const;
 

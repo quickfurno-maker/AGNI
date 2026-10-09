@@ -123,3 +123,52 @@ export interface OwnerSession {
   displayName: string;
   expiresAt: string;
 }
+
+
+export type MarketCellState =
+  | 'UNDER_SUPPLIED'
+  | 'BALANCED'
+  | 'OVER_SUPPLIED'
+  | 'LOW_QUALITY_SUPPLY'
+  | 'DEMAND_STARVED';
+
+export type MarketRecommendation =
+  | 'ACQUIRE_VENDORS'
+  | 'MAINTAIN'
+  | 'HOLD_PACKAGE_ACTIVATION'
+  | 'IMPROVE_VENDOR_QUALITY'
+  | 'BOOST_CLIENT_DEMAND';
+
+
+export interface MarketIntelligenceCell {
+  cellRef: string;
+  cityRef: string;
+  localityRef?: string;
+  categoryRef: string;
+  state: MarketCellState;
+  recommendation: MarketRecommendation;
+  demand30d: number;
+  effectiveSupply: number;
+  opportunitiesPerEffectiveVendor30d: number | null;
+  threeVendorFillRate: number;
+  confidence: number;
+  reasons: readonly string[];
+}
+
+
+export interface MarketIntelligence {
+  observedAt: string;
+  sourceObservedAt?: string;
+  status: 'AVAILABLE' | 'STALE' | 'UNUSABLE' | 'NOT_CONNECTED';
+  responseEvidence?: 'AVAILABLE' | 'UNAVAILABLE';
+  cellsTotal?: number;
+  cellsTruncated?: boolean;
+  summary: {
+    underSupplied: number;
+    balanced: number;
+    overSupplied: number;
+    lowQualitySupply: number;
+    demandStarved: number;
+  };
+  cells: readonly MarketIntelligenceCell[];
+}
