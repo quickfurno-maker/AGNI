@@ -114,8 +114,10 @@ export async function getOverview(): Promise<OwnerOverview> {
   return request<OwnerOverview>('/v2/owner/overview');
 }
 
-export async function listIncidents(): Promise<readonly IncidentSummary[]> {
-  return request<readonly IncidentSummary[]>('/v2/owner/incidents?status=open');
+export async function listIncidents(
+  status: 'open' | 'resolved' | 'all' = 'open',
+): Promise<readonly IncidentSummary[]> {
+  return request<readonly IncidentSummary[]>(`/v2/owner/incidents?status=${status}`);
 }
 
 export async function getIncident(incidentId: string): Promise<IncidentDetail> {

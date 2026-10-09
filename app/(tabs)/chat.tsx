@@ -9,38 +9,49 @@ import {
   KeyboardAvoidingView,
   Platform,
   Pressable,
-  SafeAreaView,
   StyleSheet,
   Text,
   TextInput,
   View,
 } from 'react-native';
 
+import { AgniMark } from '@/components/AgniMark';
+import { CommandScreen } from '@/components/CommandScreen';
+import { NeonPanel } from '@/components/NeonPanel';
+import { StatusChip } from '@/components/StatusChip';
 import { ownerChat } from '@/lib/api';
-import { palette, radius } from '@/lib/theme';
+import { fonts, palette, radius } from '@/lib/theme';
 import type { ChatEvidenceCard, OwnerChatResponse } from '@/types/owner';
 
 type LocalMessage =
   | { id: string; role: 'USER'; text: string }
   | { id: string; role: 'AGNI'; text: string; response: OwnerChatResponse };
 
+type ChatMode = 'ASK' | 'DIAGNOSE' | 'INVESTIGATE';
+
+const QUICK_PROMPTS = [
+  'Summarize today.',
+  'What needs my attention?',
+  'Show system health.',
+  'Why are vendors not getting leads?',
+] as const;
+
 function Evidence({ card }: { card: ChatEvidenceCard }) {
   return (
-    <View style={styles.evidence}>
+    <NeonPanel tone={card.kind === 'INCIDENT' ? 'fire' : 'blue'} style={styles.evidenceWrap}>
       <Text style={styles.evidenceTitle}>{card.title}</Text>
       {card.lines.slice(0, 8).map((line, index) => (
-        <Text key={`${card.id}:${index}`} style={styles.evidenceLine}>
-          {line}
-        </Text>
+        <Text key={card.id + ':' + index} style={styles.evidenceLine}>• {line}</Text>
       ))}
-    </View>
+    </NeonPanel>
   );
 }
 
 export default function ChatScreen() {
-  const params = useLocalSearchParams<{ prompt?: string; contextRef?: string }>();
+  const params = useLocalSearchParams<{ prompt?: string; contextRef?: string; intent?: string }>();
   const [messages, setMessages] = useState<LocalMessage[]>([]);
   const [input, setInput] = useState('');
+  const [mode, setMode] = useState<ChatMode>('ASK');
   const conversation = useRef<string | undefined>(undefined);
   const consumedPrompt = useRef<string | undefined>(undefined);
 
@@ -58,18 +69,25 @@ export default function ChatScreen() {
   const send = useCallback(
     async (
       text: string,
-      intent: 'CHAT' | 'INVESTIGATE' | 'PREPARE_FIX' = 'CHAT',
+      forcedIntent?: 'CHAT' | 'INVESTIGATE' | 'PREPARE_FIX',
     ) => {
-      const query = text.trim();
-      if (!query || chat.isPending) return;
+      const raw = text.trim();
+      if (!raw || chat.isPending) return;
       await Haptics.selectionAsync().catch(() => undefined);
-      if (intent === 'CHAT') {
+
+      const intent = forcedIntent ?? (mode === 'INVESTIGATE' ? 'INVESTIGATE' : 'CHAT');
+      const query = mode === 'DIAGNOSE' && forcedIntent === undefined
+        ? 'Run bounded diagnostics using available owner telemetry. Question: ' + raw
+        : raw;
+
+      if (forcedIntent !== 'PREPARE_FIX') {
         setMessages((current) => [
           ...current,
-          { id: `local-${Date.now()}`, role: 'USER', text: query },
+          { id: 'local-' + Date.now(), role: 'USER', text: raw },
         ]);
         setInput('');
       }
+
       chat.mutate({
         conversationId: conversation.current,
         query,
@@ -77,50 +95,69 @@ export default function ChatScreen() {
         intent,
       });
     },
-    [chat, params.contextRef],
+    [chat, mode, params.contextRef],
   );
 
   useEffect(() => {
     if (params.prompt && params.prompt !== consumedPrompt.current) {
       consumedPrompt.current = params.prompt;
-      void send(params.prompt);
+      const forced = params.intent === 'INVESTIGATE' || params.intent === 'PREPARE_FIX'
+        ? params.intent
+        : undefined;
+      void send(params.prompt, forced);
     }
-  }, [params.prompt, send]);
+  }, [params.intent, params.prompt, send]);
 
   return (
-    <SafeAreaView style={styles.safe}>
+    <CommandScreen>
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
         <View style={styles.header}>
-          <View style={styles.brandIcon}>
-            <Ionicons name="sparkles" size={16} color={palette.bg} />
+          <AgniMark size={38} />
+          <View style={styles.headerCopy}>
+            <Text style={styles.brand}>AGNI // ASK AGNI</Text>
+            <Text style={styles.sub}>OWNER AI OPERATIONS CO-PILOT</Text>
           </View>
-          <View style={styles.brandCopy}>
-            <Text style={styles.title}>Ask AGNI</Text>
-            <Text style={styles.subtitle}>One conversation across QuickFurno, Jarvis and AGNI</Text>
-          </View>
+          <StatusChip label="ONLINE" tone="green" compact />
+        </View>
+
+        <View style={styles.modeBar}>
+          {(['ASK', 'DIAGNOSE', 'INVESTIGATE'] as const).map((item) => (
+            <Pressable
+              key={item}
+              onPress={() => setMode(item)}
+              style={[styles.mode, mode === item && styles.modeActive]}
+            >
+              <Text style={[styles.modeText, mode === item && styles.modeTextActive]}>{item}</Text>
+            </Pressable>
+          ))}
         </View>
 
         <FlatList
           data={messages}
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.list}
-          ListEmptyComponent={
-            <View style={styles.empty}>
-              <Text style={styles.emptyTitle}>Ask the whole system.</Text>
-              <Text style={styles.emptyText}>
-                Try “What needs my attention?”, “Why are vendors not getting leads?” or “Check Jarvis and explain anything abnormal.”
-              </Text>
-              <View style={styles.prompts}>
-                {[
-                  'What needs my attention right now?',
-                  'Check vendor and lead health.',
-                  'Are there any security or infrastructure issues?',
-                ].map((prompt) => (
-                  <Pressable key={prompt} style={styles.prompt} onPress={() => void send(prompt)}>
-                    <Text style={styles.promptText}>{prompt}</Text>
+          keyboardShouldPersistTaps="handled"
+          ListHeaderComponent={
+            <View style={styles.welcomeWrap}>
+              <NeonPanel tone="fire">
+                <View style={styles.agniLine}>
+                  <Ionicons name="flame" size={18} color={palette.fire} />
+                  <Text style={styles.agentLabel}>AGNI // READY</Text>
+                </View>
+                <Text style={styles.welcome}>
+                  Hello. I’m AGNI, your private operations co-pilot. Routine questions use lightweight context; deeper telemetry is loaded only when needed.
+                </Text>
+                <Text style={styles.promptLine}>$ what would you like to know?</Text>
+              </NeonPanel>
+
+              <View style={styles.promptGrid}>
+                {QUICK_PROMPTS.map((prompt) => (
+                  <Pressable key={prompt} style={styles.quickPrompt} onPress={() => void send(prompt)}>
+                    <Ionicons name="chevron-forward" size={12} color={palette.blueBright} />
+                    <Text style={styles.quickPromptText}>{prompt}</Text>
                   </Pressable>
                 ))}
               </View>
@@ -129,166 +166,217 @@ export default function ChatScreen() {
           renderItem={({ item }) => (
             <View style={[styles.messageWrap, item.role === 'USER' && styles.userWrap]}>
               <View style={[styles.bubble, item.role === 'USER' ? styles.userBubble : styles.agniBubble]}>
+                <Text style={styles.role}>{item.role === 'USER' ? 'YOU' : 'AGNI'}</Text>
                 <Text style={styles.message}>{item.text}</Text>
+                {item.role === 'AGNI' && item.response.safeCode && item.response.safeCode !== 'ANSWERED' ? (
+                  <Text style={styles.safeCode}>{'// ' + item.response.safeCode}</Text>
+                ) : null}
               </View>
+
               {item.role === 'AGNI' ? (
                 <>
-                  {item.response.evidence.map((card) => (
-                    <Evidence key={card.id} card={card} />
-                  ))}
+                  {item.response.evidence.map((card) => <Evidence key={card.id} card={card} />)}
                   <View style={styles.actions}>
                     <Pressable
-                      style={styles.actionSecondary}
-                      onPress={() => void send('Investigate this deeper using the available evidence.', 'INVESTIGATE')}
+                      style={styles.actionBlue}
+                      onPress={() => void send('Investigate this deeper using only relevant evidence.', 'INVESTIGATE')}
                     >
-                      <Text style={styles.actionSecondaryText}>Investigate</Text>
+                      <Ionicons name="pulse" size={13} color={palette.blueBright} />
+                      <Text style={styles.actionText}>INVESTIGATE</Text>
                     </Pressable>
-                    <Pressable
-                      style={styles.actionPrimary}
-                      onPress={() => void send('Prepare the safest bounded repair proposal for this issue.', 'PREPARE_FIX')}
-                    >
-                      <Text style={styles.actionPrimaryText}>Prepare Fix</Text>
-                    </Pressable>
+                    {params.contextRef ? (
+                      <Pressable
+                        style={styles.actionFire}
+                        onPress={() => void send('Prepare the safest bounded repair proposal. Do not execute.', 'PREPARE_FIX')}
+                      >
+                        <Ionicons name="flash" size={13} color={palette.lightning} />
+                        <Text style={styles.actionText}>PREPARE FIX</Text>
+                      </Pressable>
+                    ) : null}
                   </View>
                 </>
               ) : null}
             </View>
           )}
+          ListFooterComponent={<View style={{ height: 12 }} />}
         />
 
         {chat.isPending ? (
           <View style={styles.thinking}>
-            <ActivityIndicator color={palette.accent} size="small" />
-            <Text style={styles.thinkingText}>AGNI is checking live evidence…</Text>
+            <ActivityIndicator color={palette.lightning} size="small" />
+            <Text style={styles.thinkingText}>
+              {mode === 'ASK' ? '$ routing minimum context...' : '$ correlating relevant telemetry...'}
+            </Text>
           </View>
         ) : null}
 
-        {chat.isError ? <Text style={styles.error}>AGNI could not complete that request. No action was executed.</Text> : null}
+        {chat.isError ? (
+          <Text style={styles.error}>{'// REQUEST FAILED CLOSED. NO ACTION EXECUTED.'}</Text>
+        ) : null}
+
+        <View style={styles.voiceRow}>
+          <View style={styles.voiceOrb}>
+            <Ionicons name="mic" size={19} color={palette.blueBright} />
+          </View>
+          <View style={styles.voiceCopy}>
+            <Text style={styles.voiceTitle}>VOICE LINK // UI READY</Text>
+            <Text style={styles.voiceSub}>Realtime voice activation is a later controlled phase.</Text>
+          </View>
+        </View>
 
         <View style={styles.composer}>
-          <Pressable accessibilityLabel="Voice mode coming next" style={styles.iconButton}>
-            <Ionicons name="mic-outline" size={21} color={palette.muted} />
-          </Pressable>
+          <Ionicons name="terminal" size={17} color={palette.cyan} />
+          <Text style={styles.promptSymbol}>owner@agni:~$</Text>
           <TextInput
             value={input}
             onChangeText={setInput}
-            placeholder="Ask anything about QuickFurno…"
-            placeholderTextColor={palette.muted}
+            placeholder="ask AGNI..."
+            placeholderTextColor={palette.dim}
             multiline
             style={styles.input}
             onSubmitEditing={() => void send(input)}
           />
-          <Pressable
-            accessibilityLabel="Send"
-            onPress={() => void send(input)}
-            style={styles.send}
-          >
-            <Ionicons name="arrow-up" size={20} color={palette.bg} />
+          <Pressable accessibilityLabel="Send" onPress={() => void send(input)} style={styles.send}>
+            <Ionicons name="send" size={16} color={palette.white} />
           </Pressable>
         </View>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </CommandScreen>
   );
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: palette.bg },
   flex: { flex: 1 },
   header: {
-    paddingHorizontal: 18,
-    paddingVertical: 12,
+    paddingHorizontal: 14,
+    paddingTop: 8,
+    paddingBottom: 9,
     flexDirection: 'row',
-    gap: 10,
+    gap: 9,
     alignItems: 'center',
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: palette.border,
+    borderBottomWidth: 1,
+    borderBottomColor: '#17416A',
   },
-  brandIcon: {
-    width: 34,
-    height: 34,
-    borderRadius: 12,
-    backgroundColor: palette.accent,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  brandCopy: { flex: 1 },
-  title: { color: palette.text, fontSize: 17, fontWeight: '900' },
-  subtitle: { color: palette.muted, fontSize: 10, marginTop: 2 },
-  list: { padding: 16, paddingBottom: 26, gap: 14, flexGrow: 1 },
-  empty: { flex: 1, minHeight: 500, justifyContent: 'center', gap: 10 },
-  emptyTitle: { color: palette.text, fontSize: 28, fontWeight: '900' },
-  emptyText: { color: palette.muted, fontSize: 14, lineHeight: 21, maxWidth: 520 },
-  prompts: { gap: 8, marginTop: 12 },
-  prompt: {
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: palette.border,
-    backgroundColor: palette.surface,
-    padding: 13,
-  },
-  promptText: { color: palette.text, fontSize: 13, fontWeight: '700' },
-  messageWrap: { alignItems: 'flex-start', gap: 8 },
-  userWrap: { alignItems: 'flex-end' },
-  bubble: { maxWidth: '88%', borderRadius: radius.lg, paddingHorizontal: 14, paddingVertical: 11 },
-  userBubble: { backgroundColor: palette.surface2 },
-  agniBubble: { backgroundColor: palette.accentSoft, borderWidth: 1, borderColor: '#5D4527' },
-  message: { color: palette.text, fontSize: 14, lineHeight: 21 },
-  evidence: {
-    width: '100%',
-    backgroundColor: palette.surface,
-    borderWidth: 1,
-    borderColor: palette.border,
-    borderRadius: radius.md,
-    padding: 12,
-    gap: 4,
-  },
-  evidenceTitle: { color: palette.text, fontSize: 12, fontWeight: '900', marginBottom: 3 },
-  evidenceLine: { color: palette.muted, fontSize: 11, lineHeight: 16 },
-  actions: { flexDirection: 'row', gap: 8 },
-  actionSecondary: {
-    paddingHorizontal: 13,
-    paddingVertical: 9,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: palette.border,
-  },
-  actionSecondaryText: { color: palette.text, fontSize: 12, fontWeight: '800' },
-  actionPrimary: {
-    paddingHorizontal: 13,
-    paddingVertical: 9,
-    borderRadius: 12,
-    backgroundColor: palette.accent,
-  },
-  actionPrimaryText: { color: palette.bg, fontSize: 12, fontWeight: '900' },
-  thinking: { flexDirection: 'row', gap: 8, alignItems: 'center', paddingHorizontal: 18, paddingBottom: 8 },
-  thinkingText: { color: palette.muted, fontSize: 11 },
-  error: { color: palette.red, paddingHorizontal: 18, paddingBottom: 8, fontSize: 11 },
-  composer: {
-    margin: 12,
-    padding: 8,
-    minHeight: 56,
-    borderRadius: 20,
-    backgroundColor: palette.surface,
-    borderWidth: 1,
-    borderColor: palette.border,
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    gap: 7,
-  },
-  iconButton: { width: 38, height: 38, alignItems: 'center', justifyContent: 'center' },
-  input: {
+  headerCopy: { flex: 1 },
+  brand: { color: palette.text, fontFamily: fonts.mono, fontSize: 13, fontWeight: '900', letterSpacing: 0.5 },
+  sub: { color: palette.blueBright, fontFamily: fonts.mono, fontSize: 7, fontWeight: '800', letterSpacing: 0.8, marginTop: 2 },
+  modeBar: { flexDirection: 'row', gap: 6, paddingHorizontal: 14, paddingVertical: 8 },
+  mode: {
     flex: 1,
-    color: palette.text,
-    fontSize: 14,
-    maxHeight: 120,
-    minHeight: 38,
-    paddingVertical: 9,
+    borderRadius: radius.sm,
+    borderWidth: 1,
+    borderColor: palette.border,
+    paddingVertical: 7,
+    alignItems: 'center',
+    backgroundColor: '#06111C',
   },
-  send: {
+  modeActive: { borderColor: palette.blueBright, backgroundColor: '#0A2342' },
+  modeText: { color: palette.muted, fontFamily: fonts.mono, fontSize: 8, fontWeight: '900' },
+  modeTextActive: { color: palette.blueBright },
+  list: { paddingHorizontal: 14, paddingBottom: 6, gap: 10 },
+  welcomeWrap: { gap: 9, marginBottom: 12 },
+  agniLine: { flexDirection: 'row', alignItems: 'center', gap: 7, marginBottom: 7 },
+  agentLabel: { color: palette.fire, fontFamily: fonts.mono, fontSize: 10, fontWeight: '900' },
+  welcome: { color: palette.text, fontFamily: fonts.mono, fontSize: 10, lineHeight: 16 },
+  promptLine: { color: palette.cyan, fontFamily: fonts.mono, fontSize: 9, marginTop: 8 },
+  promptGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  quickPrompt: {
+    width: '48.8%',
+    minHeight: 36,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    borderWidth: 1,
+    borderColor: '#1D5287',
+    borderRadius: radius.sm,
+    backgroundColor: '#06121E',
+    paddingHorizontal: 8,
+    paddingVertical: 7,
+  },
+  quickPromptText: { flex: 1, color: palette.text, fontFamily: fonts.mono, fontSize: 8, lineHeight: 12 },
+  messageWrap: { alignItems: 'flex-start', gap: 7 },
+  userWrap: { alignItems: 'flex-end' },
+  bubble: { maxWidth: '91%', borderRadius: radius.md, paddingHorizontal: 12, paddingVertical: 10, borderWidth: 1 },
+  userBubble: { backgroundColor: '#06245A', borderColor: palette.blueBright },
+  agniBubble: { backgroundColor: '#120B08', borderColor: palette.fire },
+  role: { color: palette.cyan, fontFamily: fonts.mono, fontSize: 8, fontWeight: '900', marginBottom: 5 },
+  message: { color: palette.text, fontFamily: fonts.mono, fontSize: 10, lineHeight: 16 },
+  safeCode: { color: palette.lightning, fontFamily: fonts.mono, fontSize: 8, marginTop: 6 },
+  evidenceWrap: { width: '100%' },
+  evidenceTitle: { color: palette.text, fontFamily: fonts.mono, fontSize: 9, fontWeight: '900', marginBottom: 4 },
+  evidenceLine: { color: palette.muted, fontFamily: fonts.mono, fontSize: 8, lineHeight: 13 },
+  actions: { flexDirection: 'row', gap: 7 },
+  actionBlue: {
+    minHeight: 36,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 10,
+    borderWidth: 1,
+    borderColor: palette.blueBright,
+    borderRadius: radius.sm,
+    backgroundColor: '#07182B',
+  },
+  actionFire: {
+    minHeight: 36,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 10,
+    borderWidth: 1,
+    borderColor: palette.fire,
+    borderRadius: radius.sm,
+    backgroundColor: '#1A0B05',
+  },
+  actionText: { color: palette.text, fontFamily: fonts.mono, fontSize: 8, fontWeight: '900' },
+  thinking: { flexDirection: 'row', gap: 7, alignItems: 'center', paddingHorizontal: 15, paddingVertical: 6 },
+  thinkingText: { color: palette.lightning, fontFamily: fonts.mono, fontSize: 8 },
+  error: { color: palette.red, fontFamily: fonts.mono, fontSize: 8, paddingHorizontal: 15, paddingBottom: 5 },
+  voiceRow: {
+    marginHorizontal: 14,
+    marginBottom: 7,
+    borderWidth: 1,
+    borderColor: '#174D80',
+    borderRadius: radius.md,
+    backgroundColor: '#05101B',
+    padding: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 9,
+  },
+  voiceOrb: {
     width: 38,
     height: 38,
-    borderRadius: 13,
-    backgroundColor: palette.accent,
+    borderRadius: 19,
+    borderWidth: 2,
+    borderColor: palette.blueBright,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#071D34',
+  },
+  voiceCopy: { flex: 1 },
+  voiceTitle: { color: palette.blueBright, fontFamily: fonts.mono, fontSize: 8, fontWeight: '900' },
+  voiceSub: { color: palette.muted, fontFamily: fonts.mono, fontSize: 7, lineHeight: 11, marginTop: 2 },
+  composer: {
+    marginHorizontal: 14,
+    marginBottom: 86,
+    minHeight: 50,
+    borderRadius: radius.md,
+    backgroundColor: '#030A11',
+    borderWidth: 1,
+    borderColor: palette.blueBright,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 9,
+  },
+  promptSymbol: { color: palette.green, fontFamily: fonts.mono, fontSize: 8, fontWeight: '800' },
+  input: { flex: 1, color: palette.text, fontFamily: fonts.mono, fontSize: 10, maxHeight: 90, minHeight: 38, paddingVertical: 8 },
+  send: {
+    width: 34,
+    height: 34,
+    borderRadius: 10,
+    backgroundColor: palette.blue,
     alignItems: 'center',
     justifyContent: 'center',
   },

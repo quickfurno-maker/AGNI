@@ -114,6 +114,7 @@ export interface OwnerChatResponse {
   evidence: readonly ChatEvidenceCard[];
   suggestedActions: readonly ('INVESTIGATE' | 'PREPARE_FIX' | 'OPEN_INCIDENT' | 'NONE')[];
   observedAt: string;
+  safeCode?: string;
 }
 
 export interface OwnerSession {
