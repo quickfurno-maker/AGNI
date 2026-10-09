@@ -5,12 +5,10 @@ const ENV_BLOCK = `
 def agniReleaseKeystore = System.getenv("AGNI_ANDROID_KEYSTORE_FILE")
 def agniReleaseStorePassword = System.getenv("AGNI_ANDROID_STORE_PASSWORD")
 def agniReleaseKeyAlias = System.getenv("AGNI_ANDROID_KEY_ALIAS")
-def agniReleaseKeyPassword = System.getenv("AGNI_ANDROID_KEY_PASSWORD")
 def agniReleaseSigningReady = [
     agniReleaseKeystore,
     agniReleaseStorePassword,
-    agniReleaseKeyAlias,
-    agniReleaseKeyPassword
+    agniReleaseKeyAlias
 ].every { value -> value != null && !value.trim().isEmpty() }
 def agniReleaseRequested = gradle.startParameter.taskNames.any {
     task -> task.toLowerCase().contains("release")
@@ -39,7 +37,8 @@ const RELEASE_SIGNING = `    signingConfigs {
                 storeFile file(agniReleaseKeystore)
                 storePassword agniReleaseStorePassword
                 keyAlias agniReleaseKeyAlias
-                keyPassword agniReleaseKeyPassword
+                // PKCS12 private key is intentionally protected by the store password.
+                keyPassword agniReleaseStorePassword
                 storeType "pkcs12"
             }
         }
