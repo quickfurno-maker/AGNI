@@ -76,12 +76,10 @@ jobs:
         env:
           AGNI_ANDROID_STORE_PASSWORD: ${{ secrets.AGNI_ANDROID_STORE_PASSWORD }}
           AGNI_ANDROID_KEY_ALIAS: ${{ secrets.AGNI_ANDROID_KEY_ALIAS }}
-          AGNI_ANDROID_KEY_PASSWORD: ${{ secrets.AGNI_ANDROID_KEY_PASSWORD }}
         run: |
           set -euo pipefail
           test -n "$AGNI_ANDROID_STORE_PASSWORD"
           test -n "$AGNI_ANDROID_KEY_ALIAS"
-          test -n "$AGNI_ANDROID_KEY_PASSWORD"
           ./gradlew app:assembleRelease --no-daemon
 
       - name: Verify signer and prepare manifest
