@@ -76,7 +76,7 @@ export default function HomeScreen() {
           <AgniMark size={44} />
           <View style={styles.brandCopy}>
             <Text style={styles.brand}>AGNI</Text>
-            <Text style={styles.terminal}>OWNER COMMAND CENTER // v0.2</Text>
+            <Text style={styles.terminal}>OWNER COMMAND CENTER // v0.3</Text>
           </View>
           <StatusChip label="LIVE" tone={data?.overall === 'HEALTHY' ? 'green' : 'fire'} compact />
         </View>
@@ -227,6 +227,13 @@ export default function HomeScreen() {
                 tone="blue"
                 style={styles.quick}
                 onPress={() => router.push('/(tabs)/systems')}
+              />
+              <CommandButton
+                label="MARKET"
+                icon="analytics"
+                tone="fire"
+                style={styles.quick}
+                onPress={() => router.push('/(tabs)/market')}
               />
               <CommandButton
                 label="INCIDENTS"

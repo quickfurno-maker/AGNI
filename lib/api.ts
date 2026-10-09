@@ -12,6 +12,7 @@ import type {
   ApprovalSummary,
   IncidentDetail,
   IncidentSummary,
+  MarketIntelligence,
   OwnerChatResponse,
   OwnerOverview,
   OwnerSession,
@@ -112,6 +113,10 @@ export async function getSession(): Promise<OwnerSession> {
 
 export async function getOverview(): Promise<OwnerOverview> {
   return request<OwnerOverview>('/v2/owner/overview');
+}
+
+export async function getMarketIntelligence(): Promise<MarketIntelligence> {
+  return request<MarketIntelligence>('/v2/owner/market-intelligence');
 }
 
 export async function listIncidents(
