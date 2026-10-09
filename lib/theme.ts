@@ -24,6 +24,7 @@ export const palette = {
   ember: '#FF314F',
   green: '#28E6A2',
   yellow: '#FFD257',
+  lightning: '#FFD43B',
   red: '#FF445E',
   white: '#FFFFFF',
   black: '#000000',
