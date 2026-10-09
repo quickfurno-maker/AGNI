@@ -87,7 +87,7 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p artifacts
-          APK="artifacts/AGNI-v0.2.0-private-release.apk"
+          APK="artifacts/AGNI-v0.3.0-private-release.apk"
           cp android/app/build/outputs/apk/release/app-release.apk "$APK"
 
           APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -1)"
@@ -104,20 +104,20 @@ jobs:
           test -n "$CERT_SHA"
           APK_SHA="$(cut -d ' ' -f 1 "$APK.sha256")"
 
-          jq -n             --arg schema "qf.agni.android.release.v1"             --arg classification "PRIVATE_RELEASE"             --arg package "com.quickfurno.agni"             --arg version "0.2.0"             --argjson versionCode 2             --arg sourceSha "$GITHUB_SHA"             --arg artifact "AGNI-v0.2.0-private-release.apk"             --arg sha256 "$APK_SHA"             --arg signerCertificateSha256 "$CERT_SHA"             '{schema:$schema,classification:$classification,package:$package,version:$version,versionCode:$versionCode,sourceSha:$sourceSha,artifact:$artifact,sha256:$sha256,signerCertificateSha256:$signerCertificateSha256}'             > artifacts/release-manifest.json
+          jq -n             --arg schema "qf.agni.android.release.v1"             --arg classification "PRIVATE_RELEASE"             --arg package "com.quickfurno.agni"             --arg version "0.3.0"             --argjson versionCode 3             --arg sourceSha "$GITHUB_SHA"             --arg artifact "AGNI-v0.3.0-private-release.apk"             --arg sha256 "$APK_SHA"             --arg signerCertificateSha256 "$CERT_SHA"             '{schema:$schema,classification:$classification,package:$package,version:$version,versionCode:$versionCode,sourceSha:$sourceSha,artifact:$artifact,sha256:$sha256,signerCertificateSha256:$signerCertificateSha256}'             > artifacts/release-manifest.json
           rm -f artifacts/apksigner.txt
 
       - name: Attest exact APK provenance
         uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4
         with:
-          subject-path: artifacts/AGNI-v0.2.0-private-release.apk
+          subject-path: artifacts/AGNI-v0.3.0-private-release.apk
 
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: AGNI-v0.2.0-private-release
+          name: AGNI-v0.3.0-private-release
           path: |
-            artifacts/AGNI-v0.2.0-private-release.apk
-            artifacts/AGNI-v0.2.0-private-release.apk.sha256
+            artifacts/AGNI-v0.3.0-private-release.apk
+            artifacts/AGNI-v0.3.0-private-release.apk.sha256
             artifacts/release-manifest.json
           if-no-files-found: error
           retention-days: 30
