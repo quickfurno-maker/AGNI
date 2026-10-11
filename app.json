@@ -2,13 +2,13 @@
   "expo": {
     "name": "AGNI",
     "slug": "agni-owner",
-    "version": "0.3.0",
+    "version": "0.3.1",
     "orientation": "portrait",
     "scheme": "agni",
     "userInterfaceStyle": "dark",
     "android": {
       "package": "com.quickfurno.agni",
-      "versionCode": 3,
+      "versionCode": 4,
       "adaptiveIcon": {
         "backgroundColor": "#080B10"
       },

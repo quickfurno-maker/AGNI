@@ -1,3 +1,22 @@
+export interface Phase12GateFinding {
+  gate:string;
+  finding:'PASS'|'FAIL'|'STALE'|'MISSING'|'UNTRUSTED'|'SOURCE_MISMATCH';
+  evidenceRef:string|null;
+}
+export interface Phase12Certification {
+  protocol:'agni.phase12.certification.v1';
+  authority:'EVALUATION_ONLY';
+  executionAuthority:'NONE';
+  approvedAutonomy:'L0_L1_ONLY';
+  approvedForL4:false;
+  status:'BLOCKED'|'READY_FOR_HUMAN_REVIEW';
+  passed:number;
+  missingOrRefused:number;
+  releaseSha:string;
+  observedAt:string;
+  gates:readonly Phase12GateFinding[];
+}
+
 export type HealthState = 'HEALTHY' | 'DEGRADED' | 'UNHEALTHY' | 'UNKNOWN';
 export type OwnerSystem = 'QUICKFURNO' | 'JARVIS' | 'AGNI';
 export type IncidentSeverity = 'INFO' | 'WARNING' | 'CRITICAL' | 'EMERGENCY';

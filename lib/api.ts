@@ -16,6 +16,7 @@ import type {
   OwnerChatResponse,
   OwnerOverview,
   OwnerSession,
+  Phase12Certification,
 } from '@/types/owner';
 
 const MAX_RESPONSE_BYTES = 512 * 1024;
@@ -109,6 +110,10 @@ export async function enrollDevice(input: {
 
 export async function getSession(): Promise<OwnerSession> {
   return request<OwnerSession>('/v2/owner/session');
+}
+
+export async function getPhase12Certification(): Promise<Phase12Certification> {
+  return request<Phase12Certification>('/v2/owner/phase12-certification');
 }
 
 export async function getOverview(): Promise<OwnerOverview> {
