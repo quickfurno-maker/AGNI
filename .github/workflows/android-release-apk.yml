@@ -43,6 +43,9 @@ jobs:
       - name: Lint
         run: pnpm lint
 
+      - name: Jest contracts
+        run: pnpm test
+
       - name: Expo Doctor
         run: pnpm exec expo-doctor
 

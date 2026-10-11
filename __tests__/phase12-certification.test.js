@@ -28,6 +28,7 @@ describe('AGNI Android Phase 12 owner-only evidence surface',()=>{
   const app=JSON.parse(read('app.json')).expo;
   const pkg=JSON.parse(read('package.json'));
   const workflow=read('.github/workflows/android-release-apk.yml');
+  const engineering=read('.github/workflows/android-apk.yml');
   expect(app.version).toBe('0.3.1');
   expect(pkg.version).toBe('0.3.1');
   expect(app.android.versionCode).toBe(4);
@@ -35,5 +36,9 @@ describe('AGNI Android Phase 12 owner-only evidence surface',()=>{
   expect(workflow).toContain('--arg version "0.3.1"');
   expect(workflow).toContain('--argjson versionCode 4');
   expect(workflow).not.toContain('AGNI-v0.3.0-private-release');
+  expect(engineering).toContain('AGNI-v0.3.1-engineering-debug.apk');
+  expect(engineering).toContain('--arg version "0.3.1"');
+  expect(engineering).toContain('--argjson versionCode 4');
+  expect(engineering).not.toContain('AGNI-v0.3.0-engineering-debug');
  });
 });
