@@ -18,6 +18,7 @@ const modules: readonly {
   { label: 'Approvals', subtitle: 'Human-gated production actions', icon: 'finger-print', color: palette.purple, live: true },
   { label: 'Deployments', subtitle: 'Recent and past deployments', icon: 'rocket-outline', color: palette.fire },
   { label: 'Observability', subtitle: 'Logs, metrics and traces', icon: 'pulse-outline', color: palette.cyan },
+  { label: 'Phase 12 Certification', subtitle: 'Read-only source-bound evidence and L4-off status', icon: 'shield-checkmark-outline', color: palette.lightning, live: true },
   { label: 'Security', subtitle: 'Access, devices and audit signals', icon: 'shield-checkmark-outline', color: palette.green },
   { label: 'Automation', subtitle: 'Scheduled tasks and governed rules', icon: 'timer-outline', color: palette.blueBright },
   { label: 'Activity Log', subtitle: 'Recent actions and events', icon: 'list-outline', color: palette.purple },
@@ -56,6 +57,7 @@ export default function MoreScreen() {
               key={module.label}
               onPress={() => {
                 if (module.label === 'Approvals') router.push('/(tabs)/approvals');
+                if (module.label === 'Phase 12 Certification') router.push('/(tabs)/certification');
               }}
               style={({ pressed }) => [styles.row, pressed && module.live && styles.pressed]}
             >
